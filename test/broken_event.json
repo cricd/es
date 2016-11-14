@@ -1,0 +1,2 @@
+{ "match": 1, "eventType": "delivery", "timestamp": "2005-06-13", "ball": { "battingTeam": { "id": 2, "name": "Australia" }, "fieldingTeam": { "id": 1, "name": "England" }, "innings": 2, "over": 13, "ball": 4 }, "runs": 0, "batsmen": { "striker": { "id": 4, "name": "GD McGrath" }, "nonStriker": { "id": 5, "name": "MS Kasprowicz" } }, "bowler": { "id": 6, "name": "A Flintoff" } 
+
