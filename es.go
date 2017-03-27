@@ -1,6 +1,8 @@
 package es
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io/ioutil"
 	"net/url"
@@ -9,8 +11,11 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	es "github.com/jetbasrawi/go.geteventstore"
+	cache "github.com/patrickmn/go-cache"
 	"github.com/xeipuuv/gojsonschema"
 )
+
+var c = cache.New(5*time.Minute, 30*time.Second)
 
 // TODO: Refactor how the config works. You're always going to use the default config, and if not you should be able to be override it
 
@@ -89,6 +94,18 @@ func (cricdClient *CricdESClient) PushEvent(event string) (string, error) {
 		log.WithFields(log.Fields{"value": event}).Error("Invalid JSON for event and cannot push to ES")
 		return "", errors.New("Unable to send to ES due to invalid JSON")
 	}
+
+	// Store cache
+	keySHA := sha256.Sum256([]byte(event))
+	key := hex.EncodeToString(keySHA[:])
+	_, found := c.Get(key)
+	if found {
+		log.WithFields(log.Fields{"value": key}).Error("Event already received in the last 5 minutes")
+		return "", errors.New("Received this event in the last 5 minutes")
+	}
+	// In future we could just store nil here
+	c.Set(key, &event, cache.DefaultExpiration)
+
 	uuid := es.NewUUID()
 	myESEvent := es.NewEvent(uuid, "cricket_event", event, nil)
 
