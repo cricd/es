@@ -88,7 +88,7 @@ func (cricdClient *CricdESClient) Connect() bool {
 
 // PushEvent validates that an event is a valid cricd event then pushes it to EventStore
 // Returns the UUID of the event and an error if applicable
-func (cricdClient *CricdESClient) PushEvent(event string) (string, error) {
+func (cricdClient *CricdESClient) PushEvent(event string, dedupe bool) (string, error) {
 	valid := validateJSON(event)
 	if !valid {
 		log.WithFields(log.Fields{"value": event}).Error("Invalid JSON for event and cannot push to ES")
@@ -96,16 +96,17 @@ func (cricdClient *CricdESClient) PushEvent(event string) (string, error) {
 	}
 
 	// Store cache
-	keySHA := sha256.Sum256([]byte(event))
-	key := hex.EncodeToString(keySHA[:])
-	_, found := c.Get(key)
-	if found {
-		log.WithFields(log.Fields{"value": key}).Error("Event already received in the last 5 minutes")
-		return "", errors.New("Received this event in the last 5 minutes")
+	if dedupe {
+		keySHA := sha256.Sum256([]byte(event))
+		key := hex.EncodeToString(keySHA[:])
+		_, found := c.Get(key)
+		if found {
+			log.WithFields(log.Fields{"value": key}).Error("Event already received in the last 5 minutes")
+			return "", errors.New("Received this event in the last 5 minutes")
+		}
+		// In future we could just store nil here
+		c.Set(key, &event, cache.DefaultExpiration)
 	}
-	// In future we could just store nil here
-	c.Set(key, &event, cache.DefaultExpiration)
-
 	uuid := es.NewUUID()
 	myESEvent := es.NewEvent(uuid, "cricket_event", event, nil)
 
