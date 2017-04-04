@@ -3,6 +3,7 @@ package es
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	cricd "github.com/cricd/cricd-go"
 	es "github.com/jetbasrawi/go.geteventstore"
 	cache "github.com/patrickmn/go-cache"
 	"github.com/xeipuuv/gojsonschema"
@@ -86,10 +88,18 @@ func (cricdClient *CricdESClient) Connect() bool {
 	return true
 }
 
-// PushEvent validates that an event is a valid cricd event then pushes it to EventStore
+// PushEvent validates that an event is a valid cricd delivery then pushes it to EventStore
 // Returns the UUID of the event and an error if applicable
-func (cricdClient *CricdESClient) PushEvent(event string, dedupe bool) (string, error) {
-	valid := validateJSON(event)
+func (cricdClient *CricdESClient) PushEvent(event cricd.Delivery, dedupe bool) (string, error) {
+
+	e, err := json.Marshal(event)
+	if err != nil {
+		// Handle errors
+		log.WithFields(log.Fields{"value": err}).Error("Unable to marshal event to JSON")
+		return "", err
+	}
+
+	valid := validateJSON(string(e))
 	if !valid {
 		log.WithFields(log.Fields{"value": event}).Error("Invalid JSON for event and cannot push to ES")
 		return "", errors.New("Unable to send to ES due to invalid JSON")
@@ -97,7 +107,7 @@ func (cricdClient *CricdESClient) PushEvent(event string, dedupe bool) (string, 
 
 	// Store cache
 	if dedupe {
-		keySHA := sha256.Sum256([]byte(event))
+		keySHA := sha256.Sum256([]byte(e))
 		key := hex.EncodeToString(keySHA[:])
 		_, found := c.Get(key)
 		if found {
@@ -112,7 +122,7 @@ func (cricdClient *CricdESClient) PushEvent(event string, dedupe bool) (string, 
 
 	// Create a new StreamWriter
 	writer := cricdClient.client.NewStreamWriter(cricdClient.eventStoreStreamName)
-	err := writer.Append(nil, myESEvent)
+	err = writer.Append(nil, myESEvent)
 	if err != nil {
 		// Handle errors
 		log.WithFields(log.Fields{"value": err}).Error("Unable to push event to ES")
