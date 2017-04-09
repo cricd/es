@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -102,17 +103,17 @@ func (cricdClient *CricdESClient) PushEvent(event cricd.Delivery, dedupe bool) (
 	valid := validateJSON(string(e))
 	if !valid {
 		log.WithFields(log.Fields{"value": event}).Error("Invalid JSON for event and cannot push to ES")
-		return "", errors.New("Unable to send to ES due to invalid JSON")
+		return "", fmt.Errorf("Unable to send to ES due to invalid JSON")
 	}
 
 	// Store cache
-	if dedupe {
+	if dedupe == true {
 		keySHA := sha256.Sum256([]byte(e))
 		key := hex.EncodeToString(keySHA[:])
 		_, found := c.Get(key)
 		if found {
 			log.WithFields(log.Fields{"value": key}).Error("Event already received in the last 5 minutes")
-			return "", errors.New("Received this event in the last 5 minutes")
+			return "", fmt.Errorf("Received this event in the last 5 minutes")
 		}
 		// In future we could just store nil here
 		c.Set(key, &event, cache.DefaultExpiration)
