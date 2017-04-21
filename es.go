@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"time"
@@ -15,7 +14,6 @@ import (
 	cricd "github.com/cricd/cricd-go"
 	es "github.com/jetbasrawi/go.geteventstore"
 	cache "github.com/patrickmn/go-cache"
-	"github.com/xeipuuv/gojsonschema"
 )
 
 var c = cache.New(5*time.Minute, 30*time.Second)
@@ -28,26 +26,6 @@ type CricdESClient struct {
 	eventStoreURL        string
 	eventStorePort       string
 	eventStoreStreamName string
-}
-
-func validateJSON(event string) bool {
-	s, err := ioutil.ReadFile("./event_schema.json")
-	if err != nil {
-		log.WithFields(log.Fields{"value": err}).Fatal("Unable to load json schema")
-	}
-	schemaLoader := gojsonschema.NewBytesLoader(s)
-	documentLoader := gojsonschema.NewStringLoader(event)
-
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
-	if err != nil {
-		log.WithFields(log.Fields{"value": err}).Fatal("Unable to validate json schema for event")
-	}
-
-	if result.Valid() {
-		return true
-	}
-	return false
-
 }
 
 // UseDefaultConfig uses the configuration from ENV vars to determine the URL and port for EventStore
@@ -89,7 +67,7 @@ func (cricdClient *CricdESClient) Connect() bool {
 	return true
 }
 
-// PushEvent validates that an event is a valid cricd delivery then pushes it to EventStore
+// PushEvent then pushes a cricd.Delivery to EventStore
 // Returns the UUID of the event and an error if applicable
 func (cricdClient *CricdESClient) PushEvent(event cricd.Delivery, dedupe bool) (string, error) {
 
@@ -98,12 +76,6 @@ func (cricdClient *CricdESClient) PushEvent(event cricd.Delivery, dedupe bool) (
 		// Handle errors
 		log.WithFields(log.Fields{"value": err}).Error("Unable to marshal event to JSON")
 		return "", err
-	}
-
-	valid := validateJSON(string(e))
-	if !valid {
-		log.WithFields(log.Fields{"value": event}).Error("Invalid JSON for event and cannot push to ES")
-		return "", fmt.Errorf("Unable to send to ES due to invalid JSON")
 	}
 
 	// Store cache

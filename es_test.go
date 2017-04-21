@@ -1,35 +1,38 @@
 package es
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	cricd "github.com/cricd/cricd-go"
 )
 
-type validateJSONTest struct {
-	fileName string
-	valid    bool
-}
+// type validateJSONTest struct {
+// 	fileName string
+// 	valid    bool
+// }
 
-var validateJSONTests = []validateJSONTest{
-	{"test/good_event.json", true},
-	{"test/bad_event.json", false},
-}
+// var validateJSONTests = []validateJSONTest{
+// 	{"test/good_event.json", true},
+// 	{"test/bad_event.json", false},
+// }
 
-func TestValidateJSON(t *testing.T) {
-	for _, test := range validateJSONTests {
-		expected := test.valid
-		s, err := ioutil.ReadFile(test.fileName)
-		if err != nil {
-			panic(err)
-		}
-		actual := validateJSON(string(s))
-		if actual != expected {
-			t.Errorf("Failed to validate json for %v expected %v got %v", test.fileName, expected, actual)
-		}
-	}
+// func TestValidateJSON(t *testing.T) {
+// 	for _, test := range validateJSONTests {
+// 		expected := test.valid
+// 		s, err := ioutil.ReadFile(test.fileName)
+// 		if err != nil {
+// 			panic(err)
+// 		}
+// 		actual := validateJSON(string(s))
+// 		if actual != expected {
+// 			t.Errorf("Failed to validate json for %v expected %v got %v", test.fileName, expected, actual)
+// 		}
+// 	}
 
-}
+// }
 
 type useDefaultConfigTest struct {
 	input  CricdESClient
@@ -97,8 +100,11 @@ func TestPushEvent(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
+		var d cricd.Delivery
+		_ = json.Unmarshal(s, &d)
+
 		expected := test.valid
-		uuid, _ := testClient.PushEvent(string(s))
+		uuid, _ := testClient.PushEvent(d, false)
 		actual := (uuid != "")
 		if actual != expected {
 			t.Errorf("Failed to push to ES expected %v but got %v", expected, actual)
